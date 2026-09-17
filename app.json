@@ -1,0 +1,77 @@
+{
+  "expo": {
+    "name": "Kyl2AI",
+    "slug": "kyl2ai",
+    "scheme": "kyl2ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#F7F8FA"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kyl2ai.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Kyl2AI använder kameran för att fota kvitton och skafferihyllor så AI kan känna igen varor.",
+        "NSPhotoLibraryUsageDescription": "Kyl2AI behöver tillgång till bilder för att läsa in kvitton och varor.",
+        "NSLocationWhenInUseUsageDescription": "Kyl2AI kan påminna dig om inköpslistan när du närmar dig en butik.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Kyl2AI använder platsdata i bakgrunden för att skicka påminnelser nära butiker.",
+        "UIBackgroundModes": ["location", "fetch"]
+      }
+    },
+    "android": {
+      "package": "com.kyl2ai.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#F7F8FA"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F8FA",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 160
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Kyl2AI använder platsdata för att påminna dig om inköpslistan nära butiker."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#00C2B8"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kyl2AI behöver tillgång till bilder för att läsa in kvitton och varor.",
+          "cameraPermission": "Kyl2AI använder kameran för att fota kvitton och skafferihyllor."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
