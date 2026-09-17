@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, SectionList, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, SectionList, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ShoppingListItem } from "../../components/ShoppingListItem";
 import { colors, fonts, radius, spacing } from "../../constants/theme";
-import { findOrCreateItem } from "../../db/queries/fridge";
+import { findOrCreateItem, searchItems } from "../../db/queries/fridge";
 import {
   addToShoppingList,
   clearChecked,
@@ -13,9 +14,12 @@ import {
   type ShoppingListRow,
 } from "../../db/queries/shoppingList";
 
+type SearchResult = { id: number; name: string; category: string; default_shelf_life_days: number };
+
 export default function ShoppingListScreen() {
   const [rows, setRows] = useState<ShoppingListRow[]>([]);
   const [newItemName, setNewItemName] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
 
   const load = useCallback(async () => {
     setRows(await listShoppingList());
@@ -39,33 +43,63 @@ export default function ShoppingListScreen() {
 
   const checkedCount = rows.filter((r) => r.checked).length;
 
-  async function handleAdd() {
-    const trimmed = newItemName.trim();
+  async function handleNameChange(text: string) {
+    setNewItemName(text);
+    if (text.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    setSuggestions(await searchItems(text.trim()));
+  }
+
+  async function addItem(name: string, category = "Övrigt", defaultShelfLifeDays = 7) {
+    const trimmed = name.trim();
     if (!trimmed) return;
-    const item = await findOrCreateItem({
-      name: trimmed,
-      category: "Övrigt",
-      defaultShelfLifeDays: 7,
-    });
+    const item = await findOrCreateItem({ name: trimmed, category, defaultShelfLifeDays });
     await addToShoppingList(item.id);
     setNewItemName("");
+    setSuggestions([]);
     load();
+  }
+
+  async function handleAdd() {
+    await addItem(newItemName);
+  }
+
+  async function handleShare() {
+    const unchecked = rows.filter((r) => !r.checked);
+    if (unchecked.length === 0) return;
+    const grouped = new Map<string, string[]>();
+    for (const row of unchecked) {
+      const key = row.department_name ?? "Övrigt";
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(row.name);
+    }
+    const body = Array.from(grouped.entries())
+      .map(([dept, names]) => `${dept}\n${names.map((n) => `- ${n}`).join("\n")}`)
+      .join("\n\n");
+    await Share.share({ message: `Inköpslista:\n\n${body}` });
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Inköpslista</Text>
-        <Text style={styles.headerMono}>
-          {rows.length - checkedCount} kvar · {checkedCount} klara
-        </Text>
+        <View>
+          <Text style={styles.headerTitle}>Inköpslista</Text>
+          <Text style={styles.headerMono}>
+            {rows.length - checkedCount} kvar · {checkedCount} klara
+          </Text>
+        </View>
+        <Pressable onPress={handleShare} hitSlop={8}>
+          <Ionicons name="share-outline" size={22} color={colors.graphite} />
+        </Pressable>
       </View>
 
       <View style={styles.addRow}>
         <TextInput
           style={styles.input}
           value={newItemName}
-          onChangeText={setNewItemName}
+          onChangeText={handleNameChange}
           placeholder="Lägg till vara…"
           placeholderTextColor={colors.graphiteMuted}
           onSubmitEditing={handleAdd}
@@ -75,6 +109,21 @@ export default function ShoppingListScreen() {
           <Text style={styles.addButtonText}>Lägg till</Text>
         </Pressable>
       </View>
+
+      {suggestions.length > 0 && (
+        <View style={styles.suggestions}>
+          {suggestions.map((s) => (
+            <Pressable
+              key={s.id}
+              style={styles.suggestionRow}
+              onPress={() => addItem(s.name, s.category, s.default_shelf_life_days)}
+            >
+              <Text style={styles.suggestionText}>{s.name}</Text>
+              <Text style={styles.suggestionMeta}>{s.category}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       <SectionList
         sections={sections}
@@ -125,7 +174,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "baseline",
+    alignItems: "center",
   },
   headerTitle: {
     fontFamily: fonts.display,
@@ -164,6 +213,33 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displayMedium,
     fontSize: 13,
     color: colors.white,
+  },
+  suggestions: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  suggestionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  suggestionText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.graphite,
+  },
+  suggestionMeta: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    color: colors.graphiteMuted,
   },
   listContent: {
     paddingBottom: 100,
