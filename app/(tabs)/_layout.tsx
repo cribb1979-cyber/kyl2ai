@@ -20,7 +20,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="fridge"
+        name="index"
         options={{
           title: "Kylskåp",
           tabBarIcon: ({ color, size }) => <Ionicons name="snow" size={size} color={color} />,
