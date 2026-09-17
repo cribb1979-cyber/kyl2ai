@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AddFridgeItemModal } from "../../components/AddFridgeItemModal";
 import { FridgeItemCard } from "../../components/FridgeItemCard";
@@ -105,6 +105,10 @@ export default function FridgeScreen() {
           <Text style={styles.empty}>Inga varor här än. Tryck på + för att lägga till.</Text>
         }
       />
+
+      <Pressable style={styles.scanFab} onPress={() => router.push("/scan")}>
+        <Ionicons name="camera" size={22} color={colors.graphite} />
+      </Pressable>
 
       <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
         <Ionicons name="add" size={28} color={colors.white} />
@@ -211,5 +215,23 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
+  },
+  scanFab: {
+    position: "absolute",
+    right: spacing.lg,
+    bottom: spacing.xl + 64,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.graphite,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
 });

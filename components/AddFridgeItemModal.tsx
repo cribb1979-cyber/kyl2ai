@@ -12,6 +12,30 @@ const LOCATIONS = [
   { key: "freezer", label: "Frys" },
 ] as const;
 
+const DATE_PRESETS = [
+  { label: "+3d", days: 3 },
+  { label: "+1v", days: 7 },
+  { label: "+2v", days: 14 },
+  { label: "+1mån", days: 30 },
+] as const;
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function daysBetween(from: Date, to: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const fromMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const toMidnight = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((toMidnight.getTime() - fromMidnight.getTime()) / msPerDay);
+}
+
+function formatDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 export function AddFridgeItemModal({
   visible,
   onClose,
@@ -25,7 +49,7 @@ export function AddFridgeItemModal({
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selected, setSelected] = useState<SearchResult | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [shelfLifeDays, setShelfLifeDays] = useState(7);
+  const [expiryDate, setExpiryDate] = useState(() => addDays(new Date(), 7));
   const [location, setLocation] = useState<(typeof LOCATIONS)[number]["key"]>("fridge");
   const [saving, setSaving] = useState(false);
 
@@ -35,7 +59,7 @@ export function AddFridgeItemModal({
       setResults([]);
       setSelected(null);
       setQuantity(1);
-      setShelfLifeDays(7);
+      setExpiryDate(addDays(new Date(), 7));
       setLocation("fridge");
     }
   }, [visible]);
@@ -59,7 +83,7 @@ export function AddFridgeItemModal({
   function pickResult(result: SearchResult) {
     setSelected(result);
     setName(result.name);
-    setShelfLifeDays(result.default_shelf_life_days);
+    setExpiryDate(addDays(new Date(), result.default_shelf_life_days));
     setResults([]);
   }
 
@@ -67,6 +91,7 @@ export function AddFridgeItemModal({
     if (!name.trim()) return;
     setSaving(true);
     try {
+      const shelfLifeDays = daysBetween(new Date(), expiryDate);
       const item =
         selected ??
         (await findOrCreateItem({ name: name.trim(), category: "Övrigt", defaultShelfLifeDays: shelfLifeDays }));
@@ -129,16 +154,37 @@ export function AddFridgeItemModal({
               ))}
             </View>
 
-            <View style={styles.row}>
-              <View style={styles.half}>
-                <Text style={styles.label}>Antal</Text>
-                <Stepper value={quantity} onChange={setQuantity} min={1} />
-              </View>
-              <View style={styles.half}>
-                <Text style={styles.label}>Hållbarhet (dagar)</Text>
-                <Stepper value={shelfLifeDays} onChange={setShelfLifeDays} min={0} step={1} />
-              </View>
+            <Text style={styles.label}>Antal</Text>
+            <Stepper value={quantity} onChange={setQuantity} min={1} />
+
+            <Text style={styles.label}>Bäst-före-datum</Text>
+            <View style={styles.dateRow}>
+              <Pressable
+                style={styles.stepperButton}
+                onPress={() => setExpiryDate((d) => addDays(d, -1))}
+              >
+                <Ionicons name="remove" size={16} color={colors.graphite} />
+              </Pressable>
+              <Text style={styles.dateValue}>{formatDate(expiryDate)}</Text>
+              <Pressable
+                style={styles.stepperButton}
+                onPress={() => setExpiryDate((d) => addDays(d, 1))}
+              >
+                <Ionicons name="add" size={16} color={colors.graphite} />
+              </Pressable>
             </View>
+            <View style={styles.pillRow}>
+              {DATE_PRESETS.map((preset) => (
+                <Pressable
+                  key={preset.label}
+                  style={styles.presetPill}
+                  onPress={() => setExpiryDate(addDays(new Date(), preset.days))}
+                >
+                  <Text style={styles.presetPillText}>{preset.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
           </ScrollView>
 
           <Pressable
@@ -266,6 +312,35 @@ const styles = StyleSheet.create({
   },
   pillTextActive: {
     color: colors.graphite,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    marginBottom: spacing.sm,
+  },
+  dateValue: {
+    fontFamily: fonts.mono,
+    fontSize: 16,
+    color: colors.graphite,
+  },
+  presetPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.surfaceMuted,
+  },
+  presetPillText: {
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    color: colors.graphiteMuted,
   },
   row: {
     flexDirection: "row",

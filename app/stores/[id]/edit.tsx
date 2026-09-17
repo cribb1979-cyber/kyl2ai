@@ -3,7 +3,6 @@ import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DraggableFlatList, { type RenderItemParams } from "react-native-draggable-flatlist";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { colors, fonts, radius, spacing } from "../../../constants/theme";
 import { getStore, listDepartments, updateDepartmentOrder } from "../../../db/queries/stores";
 
@@ -15,12 +14,19 @@ export default function StoreEditScreen() {
   const [ordered, setOrdered] = useState<Department[]>([]);
 
   const load = useCallback(async () => {
-    const [store, allDepartments] = await Promise.all([getStore(storeId), listDepartments()]);
-    if (!store) return;
-    const byId = new Map(allDepartments.map((d) => [d.id, d]));
-    const inOrder = store.department_order.map((id) => byId.get(id)).filter(Boolean) as Department[];
-    const missing = allDepartments.filter((d) => !store.department_order.includes(d.id));
-    setOrdered([...inOrder, ...missing]);
+    if (!Number.isFinite(storeId)) return;
+    try {
+      const [store, allDepartments] = await Promise.all([getStore(storeId), listDepartments()]);
+      if (!store) return;
+      const byId = new Map(allDepartments.map((d) => [d.id, d]));
+      const inOrder = store.department_order
+        .map((deptId) => byId.get(deptId))
+        .filter(Boolean) as Department[];
+      const missing = allDepartments.filter((d) => !store.department_order.includes(d.id));
+      setOrdered([...inOrder, ...missing]);
+    } catch (error) {
+      console.warn("[stores/edit] failed to load", error);
+    }
   }, [storeId]);
 
   useFocusEffect(
@@ -31,11 +37,15 @@ export default function StoreEditScreen() {
 
   async function handleReorder(data: Department[]) {
     setOrdered(data);
-    await updateDepartmentOrder(storeId, data.map((d) => d.id));
+    try {
+      await updateDepartmentOrder(storeId, data.map((d) => d.id));
+    } catch (error) {
+      console.warn("[stores/edit] failed to save order", error);
+    }
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.hint}>
         Dra avdelningarna i den ordning du går genom butiken — inköpslistan sorteras efter detta.
       </Text>
@@ -56,7 +66,7 @@ export default function StoreEditScreen() {
           </View>
         )}
       />
-    </GestureHandlerRootView>
+    </View>
   );
 }
 

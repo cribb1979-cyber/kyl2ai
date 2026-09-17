@@ -11,7 +11,11 @@ export default function StoresScreen() {
   const [newStoreName, setNewStoreName] = useState("");
 
   const load = useCallback(async () => {
-    setStores(await listStores());
+    try {
+      setStores(await listStores());
+    } catch (error) {
+      console.warn("[stores] failed to load", error);
+    }
   }, []);
 
   useFocusEffect(
@@ -23,9 +27,13 @@ export default function StoresScreen() {
   async function handleCreate() {
     const trimmed = newStoreName.trim();
     if (!trimmed) return;
-    await createStore(trimmed);
-    setNewStoreName("");
-    load();
+    try {
+      await createStore(trimmed);
+      setNewStoreName("");
+      await load();
+    } catch (error) {
+      console.warn("[stores] failed to create", error);
+    }
   }
 
   return (

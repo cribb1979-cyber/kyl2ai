@@ -65,6 +65,10 @@ export default function RootLayout() {
             name="stores/[id]/edit"
             options={{ headerShown: true, title: "Avdelningsordning" }}
           />
+          <Stack.Screen
+            name="scan"
+            options={{ headerShown: true, title: "Skanna", presentation: "modal" }}
+          />
         </Stack>
         {!introDone && <IntroAnimation onFinish={() => setIntroDone(true)} />}
       </View>
