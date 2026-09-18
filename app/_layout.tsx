@@ -13,11 +13,14 @@ import {
   SpaceGrotesk_500Medium,
   SpaceGrotesk_700Bold,
 } from "@expo-google-fonts/space-grotesk";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { IntroAnimation } from "../components/IntroAnimation";
 import { colors } from "../constants/theme";
 import { getDb } from "../db/client";
+import { installGlobalErrorHandler } from "../services/errorReporting";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+installGlobalErrorHandler();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -52,27 +55,29 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.flex} onLayout={onLayoutRootView}>
-      <View style={styles.flex}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="item/[id]"
-            options={{ headerShown: true, title: "Vara", presentation: "modal" }}
-          />
-          <Stack.Screen name="stores/index" options={{ headerShown: true, title: "Butiker" }} />
-          <Stack.Screen
-            name="stores/[id]/edit"
-            options={{ headerShown: true, title: "Avdelningsordning" }}
-          />
-          <Stack.Screen
-            name="scan"
-            options={{ headerShown: true, title: "Skanna", presentation: "modal" }}
-          />
-        </Stack>
-        {!introDone && <IntroAnimation onFinish={() => setIntroDone(true)} />}
-      </View>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={styles.flex} onLayout={onLayoutRootView}>
+        <View style={styles.flex}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="item/[id]"
+              options={{ headerShown: true, title: "Vara", presentation: "modal" }}
+            />
+            <Stack.Screen name="stores/index" options={{ headerShown: true, title: "Butiker" }} />
+            <Stack.Screen
+              name="stores/[id]/edit"
+              options={{ headerShown: true, title: "Avdelningsordning" }}
+            />
+            <Stack.Screen
+              name="scan"
+              options={{ headerShown: true, title: "Skanna", presentation: "modal" }}
+            />
+          </Stack>
+          {!introDone && <IntroAnimation onFinish={() => setIntroDone(true)} />}
+        </View>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 
