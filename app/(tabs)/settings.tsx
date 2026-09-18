@@ -25,26 +25,39 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     (async () => {
-      const [savedKey, savedProvider] = await Promise.all([getApiKey(), getSavedProvider()]);
-      if (savedKey) {
-        setApiKey(savedKey);
-        setHasSavedKey(true);
+      try {
+        const [savedKey, savedProvider] = await Promise.all([getApiKey(), getSavedProvider()]);
+        if (savedKey) {
+          setApiKey(savedKey);
+          setHasSavedKey(true);
+        }
+        if (savedProvider) setProvider(savedProvider);
+      } catch (error) {
+        console.warn("[settings] failed to load saved key", error);
       }
-      if (savedProvider) setProvider(savedProvider);
     })();
   }, []);
 
   async function handleSave() {
     if (!apiKey.trim()) return;
-    await saveApiKey(provider, apiKey.trim());
-    setHasSavedKey(true);
-    Alert.alert("Sparat", "Din API-nyckel är sparad säkert på enheten.");
+    try {
+      await saveApiKey(provider, apiKey.trim());
+      setHasSavedKey(true);
+      Alert.alert("Sparat", "Din API-nyckel är sparad säkert på enheten.");
+    } catch (error) {
+      console.warn("[settings] failed to save key", error);
+      Alert.alert("Kunde inte spara", "Något gick fel när nyckeln skulle sparas.");
+    }
   }
 
   async function handleClear() {
-    await clearApiKey();
-    setApiKey("");
-    setHasSavedKey(false);
+    try {
+      await clearApiKey();
+      setApiKey("");
+      setHasSavedKey(false);
+    } catch (error) {
+      console.warn("[settings] failed to clear key", error);
+    }
   }
 
   return (
@@ -111,7 +124,10 @@ export default function SettingsScreen() {
       </SchematicCard>
 
       <Text style={styles.sectionLabel}>Notiser</Text>
-      <SchematicCard onPress={() => requestNotificationPermission()} style={styles.card}>
+      <SchematicCard
+        onPress={() => requestNotificationPermission().catch((error) => console.warn("[settings] notif permission failed", error))}
+        style={styles.card}
+      >
         <View style={styles.linkRow}>
           <Text style={styles.body}>Aktivera hållbarhetspåminnelser</Text>
           <Ionicons name="notifications" size={18} color={colors.teal} />

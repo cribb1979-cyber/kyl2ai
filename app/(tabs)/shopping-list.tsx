@@ -22,7 +22,11 @@ export default function ShoppingListScreen() {
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
 
   const load = useCallback(async () => {
-    setRows(await listShoppingList());
+    try {
+      setRows(await listShoppingList());
+    } catch (error) {
+      console.warn("[shopping-list] failed to load", error);
+    }
   }, []);
 
   useFocusEffect(
@@ -49,17 +53,25 @@ export default function ShoppingListScreen() {
       setSuggestions([]);
       return;
     }
-    setSuggestions(await searchItems(text.trim()));
+    try {
+      setSuggestions(await searchItems(text.trim()));
+    } catch (error) {
+      console.warn("[shopping-list] failed to search items", error);
+    }
   }
 
   async function addItem(name: string, category = "Övrigt", defaultShelfLifeDays = 7) {
     const trimmed = name.trim();
     if (!trimmed) return;
-    const item = await findOrCreateItem({ name: trimmed, category, defaultShelfLifeDays });
-    await addToShoppingList(item.id);
-    setNewItemName("");
-    setSuggestions([]);
-    load();
+    try {
+      const item = await findOrCreateItem({ name: trimmed, category, defaultShelfLifeDays });
+      await addToShoppingList(item.id);
+      setNewItemName("");
+      setSuggestions([]);
+      await load();
+    } catch (error) {
+      console.warn("[shopping-list] failed to add item", error);
+    }
   }
 
   async function handleAdd() {
@@ -69,16 +81,20 @@ export default function ShoppingListScreen() {
   async function handleShare() {
     const unchecked = rows.filter((r) => !r.checked);
     if (unchecked.length === 0) return;
-    const grouped = new Map<string, string[]>();
-    for (const row of unchecked) {
-      const key = row.department_name ?? "Övrigt";
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(row.name);
+    try {
+      const grouped = new Map<string, string[]>();
+      for (const row of unchecked) {
+        const key = row.department_name ?? "Övrigt";
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(row.name);
+      }
+      const body = Array.from(grouped.entries())
+        .map(([dept, names]) => `${dept}\n${names.map((n) => `- ${n}`).join("\n")}`)
+        .join("\n\n");
+      await Share.share({ message: `Inköpslista:\n\n${body}` });
+    } catch (error) {
+      console.warn("[shopping-list] failed to share", error);
     }
-    const body = Array.from(grouped.entries())
-      .map(([dept, names]) => `${dept}\n${names.map((n) => `- ${n}`).join("\n")}`)
-      .join("\n\n");
-    await Share.share({ message: `Inköpslista:\n\n${body}` });
   }
 
   return (
@@ -136,12 +152,20 @@ export default function ShoppingListScreen() {
           <ShoppingListItem
             row={item}
             onToggle={async () => {
-              await setChecked(item.id, !item.checked);
-              load();
+              try {
+                await setChecked(item.id, !item.checked);
+                await load();
+              } catch (error) {
+                console.warn("[shopping-list] failed to toggle", error);
+              }
             }}
             onRemove={async () => {
-              await removeFromShoppingList(item.id);
-              load();
+              try {
+                await removeFromShoppingList(item.id);
+                await load();
+              } catch (error) {
+                console.warn("[shopping-list] failed to remove", error);
+              }
             }}
           />
         )}
@@ -152,8 +176,12 @@ export default function ShoppingListScreen() {
         <Pressable
           style={styles.clearButton}
           onPress={async () => {
-            await clearChecked();
-            load();
+            try {
+              await clearChecked();
+              await load();
+            } catch (error) {
+              console.warn("[shopping-list] failed to clear checked", error);
+            }
           }}
         >
           <Text style={styles.clearButtonText}>Rensa {checkedCount} avbockade</Text>

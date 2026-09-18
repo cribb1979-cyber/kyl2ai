@@ -25,13 +25,17 @@ export default function FridgeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
 
   const load = useCallback(async () => {
-    const [fridgeEntries, habitSuggestions] = await Promise.all([
-      listFridgeEntries(),
-      getHabitSuggestions(),
-    ]);
-    setEntries(fridgeEntries);
-    setHabits(habitSuggestions);
-    rescheduleExpiryNotifications().catch(() => {});
+    try {
+      const [fridgeEntries, habitSuggestions] = await Promise.all([
+        listFridgeEntries(),
+        getHabitSuggestions(),
+      ]);
+      setEntries(fridgeEntries);
+      setHabits(habitSuggestions);
+      rescheduleExpiryNotifications().catch(() => {});
+    } catch (error) {
+      console.warn("[fridge] failed to load", error);
+    }
   }, []);
 
   useFocusEffect(
@@ -46,8 +50,12 @@ export default function FridgeScreen() {
   );
 
   async function addHabitSuggestionToList(suggestion: HabitSuggestion) {
-    await addToShoppingList(suggestion.item_id);
-    setHabits((prev) => prev.filter((h) => h.item_id !== suggestion.item_id));
+    try {
+      await addToShoppingList(suggestion.item_id);
+      setHabits((prev) => prev.filter((h) => h.item_id !== suggestion.item_id));
+    } catch (error) {
+      console.warn("[fridge] failed to add habit suggestion", error);
+    }
   }
 
   return (

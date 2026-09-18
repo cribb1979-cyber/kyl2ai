@@ -31,10 +31,15 @@ export default function ItemDetailScreen() {
   } | null>(null);
 
   const load = useCallback(async () => {
-    const result = await getFridgeEntry(entryId);
-    setEntry(result);
-    if (result) {
-      setStats(await getItemPurchaseStats(result.item_id));
+    if (!Number.isFinite(entryId)) return;
+    try {
+      const result = await getFridgeEntry(entryId);
+      setEntry(result);
+      if (result) {
+        setStats(await getItemPurchaseStats(result.item_id));
+      }
+    } catch (error) {
+      console.warn("[item] failed to load", error);
     }
   }, [entryId]);
 
@@ -54,18 +59,26 @@ export default function ItemDetailScreen() {
 
   async function adjustExpiry(deltaDays: number) {
     if (!entry) return;
-    const date = new Date(entry.expiry_date + "T00:00:00");
-    date.setDate(date.getDate() + deltaDays);
-    await updateFridgeEntry(entry.id, { expiry_date: date.toISOString().slice(0, 10) });
-    await rescheduleExpiryNotifications();
-    load();
+    try {
+      const date = new Date(entry.expiry_date + "T00:00:00");
+      date.setDate(date.getDate() + deltaDays);
+      await updateFridgeEntry(entry.id, { expiry_date: date.toISOString().slice(0, 10) });
+      await rescheduleExpiryNotifications();
+      await load();
+    } catch (error) {
+      console.warn("[item] failed to adjust expiry", error);
+    }
   }
 
   async function adjustQuantity(delta: number) {
     if (!entry) return;
-    const next = Math.max(0, entry.quantity + delta);
-    await updateFridgeEntry(entry.id, { quantity: next });
-    load();
+    try {
+      const next = Math.max(0, entry.quantity + delta);
+      await updateFridgeEntry(entry.id, { quantity: next });
+      await load();
+    } catch (error) {
+      console.warn("[item] failed to adjust quantity", error);
+    }
   }
 
   function handleDelete() {
@@ -75,9 +88,14 @@ export default function ItemDetailScreen() {
         text: "Ta bort",
         style: "destructive",
         onPress: async () => {
-          await removeFridgeEntry(entry!.id);
-          await rescheduleExpiryNotifications();
-          router.back();
+          if (!entry) return;
+          try {
+            await removeFridgeEntry(entry.id);
+            await rescheduleExpiryNotifications();
+            router.back();
+          } catch (error) {
+            console.warn("[item] failed to delete", error);
+          }
         },
       },
     ]);

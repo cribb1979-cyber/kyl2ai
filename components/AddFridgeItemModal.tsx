@@ -72,9 +72,13 @@ export function AddFridgeItemModal({
       return;
     }
     let cancelled = false;
-    searchItems(name.trim()).then((rows) => {
-      if (!cancelled) setResults(rows);
-    });
+    searchItems(name.trim())
+      .then((rows) => {
+        if (!cancelled) setResults(rows);
+      })
+      .catch((error) => {
+        console.warn("[AddFridgeItemModal] search failed", error);
+      });
     return () => {
       cancelled = true;
     };
@@ -103,6 +107,8 @@ export function AddFridgeItemModal({
       });
       onAdded();
       onClose();
+    } catch (error) {
+      console.warn("[AddFridgeItemModal] failed to save", error);
     } finally {
       setSaving(false);
     }

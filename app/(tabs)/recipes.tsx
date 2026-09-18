@@ -14,7 +14,9 @@ export default function RecipesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      listFridgeEntries().then((entries) => setIngredientCount(entries.length));
+      listFridgeEntries()
+        .then((entries) => setIngredientCount(entries.length))
+        .catch((err) => console.warn("[recipes] failed to load fridge entries", err));
     }, [])
   );
 

@@ -25,25 +25,30 @@ export default function ScanScreen() {
   const [saving, setSaving] = useState(false);
 
   async function pickImage(fromCamera: boolean) {
-    const permission = fromCamera
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Behörighet saknas", "Ge appen tillgång i Inställningar för att fortsätta.");
-      return;
+    try {
+      const permission = fromCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Behörighet saknas", "Ge appen tillgång i Inställningar för att fortsätta.");
+        return;
+      }
+
+      const result = fromCamera
+        ? await ImagePicker.launchCameraAsync({ quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const uri = result.assets[0].uri;
+      setImageUri(uri);
+      setResults([]);
+      setSelected(new Set());
+      setError(null);
+      await runRecognition(uri);
+    } catch (err) {
+      console.warn("[scan] image picker failed", err);
+      Alert.alert("Något gick fel", "Kunde inte öppna kameran/bildbiblioteket. Försök igen.");
     }
-
-    const result = fromCamera
-      ? await ImagePicker.launchCameraAsync({ quality: 0.8 })
-      : await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
-    if (result.canceled || !result.assets?.[0]) return;
-
-    const uri = result.assets[0].uri;
-    setImageUri(uri);
-    setResults([]);
-    setSelected(new Set());
-    setError(null);
-    await runRecognition(uri);
   }
 
   async function runRecognition(uri: string) {
