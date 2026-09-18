@@ -44,11 +44,18 @@ export async function generateRecipes(params: {
   });
 
   const parsed = extractJson<{ recipes: RecipeSuggestion[] }>(text);
-  return parsed?.recipes ?? [];
+  if (!parsed || !Array.isArray(parsed.recipes)) {
+    throw new Error(
+      `AI-svaret gick inte att tolka som recept-JSON. Rått svar (start): ${text.slice(0, 300)}`
+    );
+  }
+  return parsed.recipes;
 }
 
+/** Strips markdown code fences (```json ... ```) some models wrap JSON in, then parses. */
 function extractJson<T>(text: string): T | null {
-  const match = text.match(/\{[\s\S]*\}/);
+  const stripped = text.replace(/```(?:json)?/gi, "").trim();
+  const match = stripped.match(/\{[\s\S]*\}/);
   if (!match) return null;
   try {
     return JSON.parse(match[0]) as T;

@@ -29,10 +29,14 @@ export default function RecipesScreen() {
         availableIngredients: all.map((e) => e.name),
         expiringItems: expiring.map((e) => e.name),
       });
+      if (suggestions.length === 0) {
+        setError("AI:n hittade inga receptförslag den här gången. Försök igen.");
+      }
       setRecipes(suggestions);
     } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
       setError(
-        "Kunde inte hämta recept. Kontrollera din AI-nyckel i Inställningar eller försök igen senare."
+        `Kunde inte hämta recept. Kontrollera din AI-nyckel i Inställningar eller försök igen senare.\n\n${detail}`
       );
       console.warn("[recipes] generation failed", err);
     } finally {
