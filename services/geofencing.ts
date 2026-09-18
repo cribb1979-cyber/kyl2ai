@@ -1,10 +1,14 @@
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import * as TaskManager from "expo-task-manager";
-import { listStores } from "../db/queries/stores";
+import { getStore, listStores } from "../db/queries/stores";
+import { listShoppingList } from "../db/queries/shoppingList";
 
 /**
  * NOTE: this does not run inside Expo Go — background location + task
- * manager require a development build (`eas build --profile development`).
+ * manager require a real compiled build (any EAS profile — development,
+ * preview or production all work; it's specifically the generic Expo Go
+ * client that can't run custom background tasks).
  * iOS also hard-caps background region monitoring at ~20 regions, so we
  * only geofence stores the user has actually added.
  */
@@ -22,11 +26,23 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
 });
 
 async function onEnterStoreRegion(region: Location.LocationRegion): Promise<void> {
-  // Hook point: fire a local notification pointing at the shopping list
-  // when the user enters a known store's radius. Kept side-effect free here
-  // so it can be unit tested; wire actual notification dispatch in the
-  // caller once this is exercised on a device.
-  console.log("[geofencing] entered region", region.identifier);
+  try {
+    const storeId = Number(region.identifier);
+    const [store, shoppingList] = await Promise.all([getStore(storeId), listShoppingList()]);
+    const unchecked = shoppingList.filter((row) => !row.checked);
+    if (unchecked.length === 0) return;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: store ? `Du är nära ${store.name}` : "Du är nära en butik",
+        body: `${unchecked.length} vara${unchecked.length === 1 ? "" : "r"} kvar på inköpslistan.`,
+        data: { storeId },
+      },
+      trigger: null,
+    });
+  } catch (err) {
+    console.warn("[geofencing] failed to notify on region enter", err);
+  }
 }
 
 export async function requestBackgroundLocationPermission(): Promise<boolean> {

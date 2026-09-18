@@ -39,6 +39,11 @@ export async function createStore(name: string, lat?: number, lng?: number): Pro
   return result.lastInsertRowId;
 }
 
+export async function updateStoreLocation(storeId: number, lat: number, lng: number): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(`UPDATE stores SET lat = ?, lng = ? WHERE id = ?;`, [lat, lng, storeId]);
+}
+
 export async function updateDepartmentOrder(storeId: number, departmentIds: number[]): Promise<void> {
   const db = await getDb();
   await db.runAsync(`UPDATE stores SET department_order = ? WHERE id = ?;`, [

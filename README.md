@@ -15,17 +15,22 @@ npx expo start
 Fungerar direkt i Expo Go:
 
 - Kylskåp/skafferi med manuell inmatning, ~25 förinlästa varor med hållbarhetsdata
-- Inköpslista, grupperad efter avdelning
+- Inköpslista, grupperad efter avdelning, med autoförslag och delning via native delningsmeny
 - Vane-inlärning (ren SQL-aggregering över köphistorik, inget ML)
 - Lokala hållbarhetspåminnelser (`expo-notifications`)
 - Recept-generator (kräver antingen din Supabase Edge Function eller en egen AI-nyckel i Inställningar)
 - Butiker + drag-and-drop-ordning på avdelningar
+- AI-kamera (`app/scan.tsx`) för kvitto- och hyllfoto-tolkning, inklusive förslag på förvaringsplats
+  och en organisationstips-text — kräver samma AI-nyckel/backend som receptgeneratorn
 
-Kräver en **development build** (`eas build --profile development`), fungerar inte i Expo Go:
+Kräver en riktig kompilerad build (vilket EAS-profil som helst — `development`, `preview` eller
+`production`; det är specifikt Expo Go-klienten som inte stödjer detta, inte "development"
+kontra andra profiler):
 
 - Geofencing (`services/geofencing.ts`) — `expo-location` + `expo-task-manager` bakgrundsbevakning.
-  iOS begränsar detta till max ~20 regioner och kan strypa uppdateringsfrekvensen; testa på riktig
-  enhet tidigt.
+  Sätt en butiks plats via platsikonen i Inställningar → Hantera butiker (hämtar din nuvarande
+  position); det ber om bakgrundsbehörighet och startar bevakningen automatiskt. iOS begränsar
+  detta till max ~20 regioner och kan strypa uppdateringsfrekvensen; testa på riktig enhet tidigt.
 
 ## Innan produktion
 
@@ -34,9 +39,6 @@ Kräver en **development build** (`eas build --profile development`), fungerar i
    `recognize-items` är deployade.
 2. **App-ikoner**: `assets/images/*.png` är genererade platshållare (solid teal, 1024×1024).
    Ersätt med riktig ikon/adaptive-icon/splash innan du kör `eas build`.
-3. **Kamera-UI**: `services/ai/visionAI.ts` har fungerande logik för kvitto- och hyllfoto-tolkning
-   (komprimerar bild, anropar vision-modell, tolkar JSON-svar), men det finns ännu ingen
-   kameraskärm som anropar den — det är nästa steg när du vill lägga till kvittoscanning.
 
 ## Datamodell
 
@@ -76,6 +78,8 @@ Ljus kylig bakgrund, grafit för struktur, teal som tech-accent, korall reserver
 
 ## EAS Build
 
-`eas.json` har profiler för `development` (krävs för geofencing/bakgrundsuppgifter),
-`preview` och `production`. Kör `eas build --profile development` från terminalen (bygget
-själv körs i molnet).
+`eas.json` har profiler för `development` (med dev-klient/Metro-anslutning, för snabbare
+JS-iteration), `preview` och `production` (det som går till TestFlight). Alla tre ger en
+riktig kompilerad native-build — geofencing och kameran fungerar i alla tre, det är bara
+Expo Go som saknar stöd. Kör t.ex. `eas build --profile production --platform ios` från
+terminalen (bygget själv körs i molnet).
