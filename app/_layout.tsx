@@ -17,10 +17,8 @@ import { ErrorBoundary } from "../components/ErrorBoundary";
 import { IntroAnimation } from "../components/IntroAnimation";
 import { colors } from "../constants/theme";
 import { getDb } from "../db/client";
-import { installGlobalErrorHandler } from "../services/errorReporting";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-installGlobalErrorHandler();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
