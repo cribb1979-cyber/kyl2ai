@@ -72,7 +72,14 @@ async function callAnthropic(params: {
     throw new Error(`Anthropic API error: ${response.status} ${await response.text()}`);
   }
   const json = await response.json();
-  return json.content?.[0]?.text ?? "";
+  const text = json.content?.find((block: { type: string }) => block.type === "text")?.text;
+  if (!text) {
+    throw new Error(
+      `Anthropic API gav ett svar utan text (stop_reason: ${json.stop_reason ?? "okänd"}). ` +
+        `Rått svar: ${JSON.stringify(json).slice(0, 500)}`
+    );
+  }
+  return text;
 }
 
 async function callOpenAi(params: {
@@ -109,7 +116,14 @@ async function callOpenAi(params: {
     throw new Error(`OpenAI API error: ${response.status} ${await response.text()}`);
   }
   const json = await response.json();
-  return json.choices?.[0]?.message?.content ?? "";
+  const text = json.choices?.[0]?.message?.content;
+  if (!text) {
+    throw new Error(
+      `OpenAI API gav ett svar utan text (finish_reason: ${json.choices?.[0]?.finish_reason ?? "okänd"}). ` +
+        `Rått svar: ${JSON.stringify(json).slice(0, 500)}`
+    );
+  }
+  return text;
 }
 
 /** Calls our Supabase Edge Function fallback, which holds our own key server-side. */
