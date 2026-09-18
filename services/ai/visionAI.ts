@@ -1,20 +1,39 @@
 import * as ImageManipulator from "expo-image-manipulator";
 import { callDefaultBackend, callOwnKeyModel, resolveAiMode } from "./provider";
 
+export type StorageLocation = "kylskåp" | "frys" | "skafferi";
+
 export type RecognizedItem = {
   name: string;
   category: string;
   estimatedQuantity: number;
+  suggestedLocation: StorageLocation;
 };
 
+export type VisionRecognitionResult = {
+  items: RecognizedItem[];
+  /** One short, concrete tidy-up/organization tip for the whole photo, or "" if nothing to flag. */
+  organizationTip: string;
+};
+
+const ITEM_SCHEMA =
+  '{"name": string, "category": string, "estimatedQuantity": number, ' +
+  '"suggestedLocation": "kylskåp" | "frys" | "skafferi"}';
+
 const RECEIPT_PROMPT =
-  "Läs kvittot på bilden och lista alla matvaror som köpts. Svara ENDAST med giltig JSON: " +
-  '{"items": [{"name": string, "category": string, "estimatedQuantity": number}]}. ' +
-  "Ignorera icke-matvaror (påsar, pant, rabatter).";
+  "Läs kvittot på bilden och lista alla matvaror som köpts. För varje vara, föreslå var den " +
+  "bäst bör förvaras (kylskåp, frys eller skafferi) baserat på vad det är. " +
+  `Svara ENDAST med giltig JSON: {"items": [${ITEM_SCHEMA}], "organizationTip": string}. ` +
+  "Sätt organizationTip till en tom sträng — ett kvitto visar inget om hur varorna faktiskt " +
+  "står förvarade. Ignorera icke-matvaror (påsar, pant, rabatter).";
 
 const SHELF_PROMPT =
-  "Bilden visar en hylla i ett kylskåp eller skafferi. Identifiera varje synlig matvara. " +
-  'Svara ENDAST med giltig JSON: {"items": [{"name": string, "category": string, "estimatedQuantity": number}]}.';
+  "Bilden visar en hylla i ett kylskåp, frys eller skafferi. Identifiera varje synlig matvara " +
+  "och föreslå var den bäst bör förvaras (kylskåp, frys eller skafferi). Titta även på HUR " +
+  "varorna står placerade och ge EN kort, konkret städ- eller organisationstips för hela bilden " +
+  'om du ser något som borde flyttas eller ordnas bättre (t.ex. "Flytta mjölken längre in, den ' +
+  'står för nära dörren"). Om allt redan ser välorganiserat ut, sätt organizationTip till en ' +
+  `tom sträng. Svara ENDAST med giltig JSON: {"items": [${ITEM_SCHEMA}], "organizationTip": string}.`;
 
 /** Compresses/resizes before upload — vision calls get slow and expensive on raw photos. */
 async function prepareImage(uri: string): Promise<string> {
@@ -27,16 +46,27 @@ async function prepareImage(uri: string): Promise<string> {
   return result.base64;
 }
 
-async function recognize(uri: string, prompt: string): Promise<RecognizedItem[]> {
+/** Strips markdown code fences (```json ... ```) some models wrap JSON in, then parses. */
+function extractJson<T>(text: string): T | null {
+  const stripped = text.replace(/```(?:json)?/gi, "").trim();
+  const match = stripped.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function recognize(uri: string, prompt: string): Promise<VisionRecognitionResult> {
   const base64 = await prepareImage(uri);
   const mode = await resolveAiMode();
 
   if (mode.kind === "default") {
-    const result = await callDefaultBackend<{ items: RecognizedItem[] }>("recognize-items", {
+    return callDefaultBackend<VisionRecognitionResult>("recognize-items", {
       imageBase64: base64,
       prompt,
     });
-    return result.items;
   }
 
   const text = await callOwnKeyModel({
@@ -47,22 +77,21 @@ async function recognize(uri: string, prompt: string): Promise<RecognizedItem[]>
     imageBase64: base64,
   });
 
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return [];
-  try {
-    const parsed = JSON.parse(match[0]) as { items: RecognizedItem[] };
-    return parsed.items ?? [];
-  } catch {
-    return [];
+  const parsed = extractJson<VisionRecognitionResult>(text);
+  if (!parsed || !Array.isArray(parsed.items)) {
+    throw new Error(
+      `AI-svaret gick inte att tolka. Rått svar (start): ${text.slice(0, 300)}`
+    );
   }
+  return { items: parsed.items, organizationTip: parsed.organizationTip ?? "" };
 }
 
-/** Photo of a grocery receipt -> recognized purchased items. */
-export function recognizeReceipt(imageUri: string): Promise<RecognizedItem[]> {
+/** Photo of a grocery receipt -> recognized purchased items + a (usually empty) tip. */
+export function recognizeReceipt(imageUri: string): Promise<VisionRecognitionResult> {
   return recognize(imageUri, RECEIPT_PROMPT);
 }
 
-/** Photo of a fridge/pantry shelf -> recognized items sitting on it. */
-export function recognizeShelfPhoto(imageUri: string): Promise<RecognizedItem[]> {
+/** Photo of a fridge/pantry shelf -> recognized items sitting on it + an organization tip. */
+export function recognizeShelfPhoto(imageUri: string): Promise<VisionRecognitionResult> {
   return recognize(imageUri, SHELF_PROMPT);
 }

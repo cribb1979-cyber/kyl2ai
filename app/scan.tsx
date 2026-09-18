@@ -5,7 +5,12 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { addFridgeEntry, findOrCreateItem } from "../db/queries/fridge";
 import { rescheduleExpiryNotifications } from "../services/notifications";
-import { recognizeReceipt, recognizeShelfPhoto, type RecognizedItem } from "../services/ai/visionAI";
+import {
+  recognizeReceipt,
+  recognizeShelfPhoto,
+  type RecognizedItem,
+  type StorageLocation,
+} from "../services/ai/visionAI";
 import { colors, fonts, radius, spacing } from "../constants/theme";
 
 const MODES = [
@@ -15,13 +20,29 @@ const MODES = [
 
 type Mode = (typeof MODES)[number]["key"];
 
+type FridgeLocationKey = "fridge" | "pantry" | "freezer";
+
+const LOCATION_KEY_MAP: Record<StorageLocation, FridgeLocationKey> = {
+  kylskåp: "fridge",
+  frys: "freezer",
+  skafferi: "pantry",
+};
+
+const LOCATION_PILLS: { key: FridgeLocationKey; label: string }[] = [
+  { key: "fridge", label: "Kylskåp" },
+  { key: "pantry", label: "Skafferi" },
+  { key: "freezer", label: "Frys" },
+];
+
 export default function ScanScreen() {
   const [mode, setMode] = useState<Mode>("shelf");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<RecognizedItem[]>([]);
+  const [organizationTip, setOrganizationTip] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [locations, setLocations] = useState<Record<number, FridgeLocationKey>>({});
   const [saving, setSaving] = useState(false);
 
   async function pickImage(fromCamera: boolean) {
@@ -42,7 +63,9 @@ export default function ScanScreen() {
       const uri = result.assets[0].uri;
       setImageUri(uri);
       setResults([]);
+      setOrganizationTip("");
       setSelected(new Set());
+      setLocations({});
       setError(null);
       await runRecognition(uri);
     } catch (err) {
@@ -55,15 +78,22 @@ export default function ScanScreen() {
     setLoading(true);
     setError(null);
     try {
-      const items = mode === "receipt" ? await recognizeReceipt(uri) : await recognizeShelfPhoto(uri);
-      setResults(items);
-      setSelected(new Set(items.map((_, i) => i)));
-      if (items.length === 0) {
+      const result = mode === "receipt" ? await recognizeReceipt(uri) : await recognizeShelfPhoto(uri);
+      setResults(result.items);
+      setOrganizationTip(result.organizationTip);
+      setSelected(new Set(result.items.map((_, i) => i)));
+      setLocations(
+        Object.fromEntries(
+          result.items.map((item, i) => [i, LOCATION_KEY_MAP[item.suggestedLocation] ?? "fridge"])
+        )
+      );
+      if (result.items.length === 0) {
         setError("Kunde inte hitta några varor i bilden. Prova en tydligare bild.");
       }
     } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
       setError(
-        "Kunde inte tolka bilden. Kontrollera din AI-nyckel i Inställningar eller försök igen senare."
+        `Kunde inte tolka bilden. Kontrollera din AI-nyckel i Inställningar eller försök igen senare.\n\n${detail}`
       );
       console.warn("[scan] recognition failed", err);
     } finally {
@@ -93,7 +123,7 @@ export default function ScanScreen() {
         await addFridgeEntry({
           itemId: item.id,
           quantity: recognized.estimatedQuantity || 1,
-          location: "fridge",
+          location: locations[index] ?? "fridge",
           shelfLifeDays: item.default_shelf_life_days,
         });
       }
@@ -117,7 +147,9 @@ export default function ScanScreen() {
             onPress={() => {
               setMode(m.key);
               setResults([]);
+              setOrganizationTip("");
               setSelected(new Set());
+              setLocations({});
               setImageUri(null);
               setError(null);
             }}
@@ -148,21 +180,51 @@ export default function ScanScreen() {
 
       {!!error && <Text style={styles.error}>{error}</Text>}
 
+      {!!organizationTip && (
+        <View style={styles.tipCard}>
+          <Ionicons name="bulb" size={16} color={colors.amber} />
+          <Text style={styles.tipText}>{organizationTip}</Text>
+        </View>
+      )}
+
       {results.length > 0 && (
         <View style={styles.resultsCard}>
           <Text style={styles.resultsTitle}>Hittade varor</Text>
           {results.map((item, index) => (
-            <Pressable key={index} style={styles.resultRow} onPress={() => toggleSelected(index)}>
-              <View style={[styles.checkbox, selected.has(index) && styles.checkboxChecked]}>
-                {selected.has(index) && <Ionicons name="checkmark" size={14} color={colors.white} />}
+            <View key={index} style={styles.resultRow}>
+              <Pressable style={styles.resultRowMain} onPress={() => toggleSelected(index)}>
+                <View style={[styles.checkbox, selected.has(index) && styles.checkboxChecked]}>
+                  {selected.has(index) && <Ionicons name="checkmark" size={14} color={colors.white} />}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.resultName}>{item.name}</Text>
+                  <Text style={styles.resultMeta}>
+                    {item.category} · {item.estimatedQuantity} st
+                  </Text>
+                </View>
+              </Pressable>
+              <View style={styles.locationPillRow}>
+                {LOCATION_PILLS.map((loc) => (
+                  <Pressable
+                    key={loc.key}
+                    style={[
+                      styles.locationPill,
+                      locations[index] === loc.key && styles.locationPillActive,
+                    ]}
+                    onPress={() => setLocations((prev) => ({ ...prev, [index]: loc.key }))}
+                  >
+                    <Text
+                      style={[
+                        styles.locationPillText,
+                        locations[index] === loc.key && styles.locationPillTextActive,
+                      ]}
+                    >
+                      {loc.label}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.resultName}>{item.name}</Text>
-                <Text style={styles.resultMeta}>
-                  {item.category} · {item.estimatedQuantity} st
-                </Text>
-              </View>
-            </Pressable>
+            </View>
           ))}
 
           <Pressable
@@ -265,6 +327,21 @@ const styles = StyleSheet.create({
     color: colors.coral,
     marginTop: spacing.lg,
   },
+  tipCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    backgroundColor: colors.amberMuted,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+  tipText: {
+    flex: 1,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.graphite,
+  },
   resultsCard: {
     marginTop: spacing.lg,
     backgroundColor: colors.surface,
@@ -282,11 +359,38 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   resultRow: {
-    flexDirection: "row",
-    alignItems: "center",
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
+  },
+  resultRowMain: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  locationPillRow: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    marginLeft: 30,
+  },
+  locationPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  locationPillActive: {
+    backgroundColor: colors.tealMuted,
+    borderColor: colors.teal,
+  },
+  locationPillText: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    color: colors.graphiteMuted,
+  },
+  locationPillTextActive: {
+    color: colors.graphite,
   },
   checkbox: {
     width: 22,

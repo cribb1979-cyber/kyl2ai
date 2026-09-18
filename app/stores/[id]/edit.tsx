@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DraggableFlatList, { type RenderItemParams } from "react-native-draggable-flatlist";
@@ -47,7 +47,8 @@ export default function StoreEditScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.hint}>
-        Dra avdelningarna i den ordning du går genom butiken — inköpslistan sorteras efter detta.
+        Håll in och dra avdelningarna i den ordning du går genom butiken — inköpslistan sorteras
+        efter detta.
       </Text>
       <DraggableFlatList
         data={ordered}
@@ -55,15 +56,14 @@ export default function StoreEditScreen() {
         onDragEnd={({ data }) => handleReorder(data)}
         contentContainerStyle={styles.listContent}
         renderItem={({ item, drag, isActive }: RenderItemParams<Department>) => (
-          <View style={[styles.row, isActive && styles.rowActive]}>
+          <Pressable
+            onLongPress={drag}
+            disabled={isActive}
+            style={[styles.row, isActive && styles.rowActive]}
+          >
             <Text style={styles.name}>{item.name}</Text>
-            <Ionicons
-              name="reorder-three"
-              size={20}
-              color={colors.graphiteMuted}
-              onPressIn={drag}
-            />
-          </View>
+            <Ionicons name="reorder-three" size={20} color={colors.graphiteMuted} />
+          </Pressable>
         )}
       />
     </View>
