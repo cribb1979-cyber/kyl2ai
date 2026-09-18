@@ -20,20 +20,27 @@ const ITEM_SCHEMA =
   '{"name": string, "category": string, "estimatedQuantity": number, ' +
   '"suggestedLocation": "kylskåp" | "frys" | "skafferi"}';
 
+const NAME_STYLE_HINT =
+  "Håll name kort (1-3 ord, t.ex. \"Mjölk\", \"Äggkartong\") utan parenteser eller " +
+  "kommentarer om varans skick eller placering.";
+
 const RECEIPT_PROMPT =
   "Läs kvittot på bilden och lista alla matvaror som köpts. För varje vara, föreslå var den " +
   "bäst bör förvaras (kylskåp, frys eller skafferi) baserat på vad det är. " +
+  `${NAME_STYLE_HINT} ` +
   `Svara ENDAST med giltig JSON: {"items": [${ITEM_SCHEMA}], "organizationTip": string}. ` +
   "Sätt organizationTip till en tom sträng — ett kvitto visar inget om hur varorna faktiskt " +
   "står förvarade. Ignorera icke-matvaror (påsar, pant, rabatter).";
 
 const SHELF_PROMPT =
   "Bilden visar en hylla i ett kylskåp, frys eller skafferi. Identifiera varje synlig matvara " +
-  "och föreslå var den bäst bör förvaras (kylskåp, frys eller skafferi). Titta även på HUR " +
-  "varorna står placerade och ge EN kort, konkret städ- eller organisationstips för hela bilden " +
-  'om du ser något som borde flyttas eller ordnas bättre (t.ex. "Flytta mjölken längre in, den ' +
-  'står för nära dörren"). Om allt redan ser välorganiserat ut, sätt organizationTip till en ' +
-  `tom sträng. Svara ENDAST med giltig JSON: {"items": [${ITEM_SCHEMA}], "organizationTip": string}.`;
+  "och föreslå var den bäst bör förvaras (kylskåp, frys eller skafferi). " +
+  `${NAME_STYLE_HINT} Beskriv skick/placering i organizationTip istället för i name. ` +
+  "Titta även på HUR varorna står placerade och ge EN kort, konkret städ- eller " +
+  'organisationstips för hela bilden om du ser något som borde flyttas eller ordnas bättre ' +
+  '(t.ex. "Flytta mjölken längre in, den står för nära dörren"). Om allt redan ser ' +
+  "välorganiserat ut, sätt organizationTip till en tom sträng. " +
+  `Svara ENDAST med giltig JSON: {"items": [${ITEM_SCHEMA}], "organizationTip": string}.`;
 
 /** Compresses/resizes before upload — vision calls get slow and expensive on raw photos. */
 async function prepareImage(uri: string): Promise<string> {

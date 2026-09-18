@@ -62,7 +62,7 @@ async function callAnthropic(params: {
     },
     body: JSON.stringify({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
+      max_tokens: 4096,
       system: params.systemPrompt,
       messages: [{ role: "user", content }],
     }),
@@ -97,6 +97,7 @@ async function callOpenAi(params: {
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
+      max_tokens: 4096,
       messages: [
         { role: "system", content: params.systemPrompt },
         { role: "user", content: userContent },
