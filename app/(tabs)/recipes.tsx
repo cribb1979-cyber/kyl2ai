@@ -44,14 +44,14 @@ export default function RecipesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Recept</Text>
-        <Text style={styles.headerMono}>{ingredientCount} ingredienser i skafferiet</Text>
+        <Text style={styles.headerMono}>{ingredientCount} ingredienser hemma</Text>
       </View>
 
       <Pressable style={styles.generateButton} onPress={handleGenerate} disabled={loading}>
         {loading ? (
           <ActivityIndicator color={colors.white} />
         ) : (
-          <Text style={styles.generateButtonText}>Föreslå recept från skafferiet</Text>
+          <Text style={styles.generateButtonText}>Föreslå recept från det du har hemma</Text>
         )}
       </Pressable>
 
